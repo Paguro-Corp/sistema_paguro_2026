@@ -6,7 +6,7 @@ Sitio desplegado: https://sistema-paguro-taller-navidad.paguro-corp-1320.chatgpt
 
 ## Recorrido
 
-1. **Registro (`/`)**: página de entrada y formulario emergente. Guarda nombre, correo, WhatsApp colombiano y aceptación de recordatorios en D1.
+1. **Registro (`/`)**: página de entrada y formulario emergente. Guarda nombre, correo, WhatsApp colombiano y aceptación de recordatorios en PostgreSQL.
 2. **Taller (`/taller`)**: video de ventas, temario, preguntas frecuentes y botones de pago.
 3. **Pago en Hotmart**: ambos botones del paso 2 abren directamente el widget, con los datos del registro precargados. En celular o si el widget no carga, se usa el checkout de Hotmart. No hay un segundo formulario del sitio. La dirección antigua `/pago` redirige a `/taller`.
 4. **Agradecimiento (`/gracias`)**: próximos pasos, calendario y compartir por WhatsApp. Cuando todavía no existe confirmación verificada de pago, informa que está pendiente y evita afirmar que la compra está aprobada.
@@ -15,40 +15,53 @@ Sitio desplegado: https://sistema-paguro-taller-navidad.paguro-corp-1320.chatgpt
 
 ## Tecnología
 
-- React 19, TypeScript y Vinext sobre Vite.
-- Cloudflare Workers y D1 con Drizzle ORM.
+- React 19, TypeScript y Next.js 16.4.3, con compilación nativa para Vercel.
+- Vercel Functions y PostgreSQL en Neon, con Drizzle ORM y conexión HTTP.
 - CSS adaptable a celular, Poppins e Inter.
 - Widget oficial de Hotmart.
-- Proyecto preparado para alojamiento en Sites; identidad del despliegue en `.openai/hosting.json`.
+- Esta rama de GitHub está preparada para Vercel. El despliegue original en Sites/Cloudflare conserva su propia copia de código; `.openai/hosting.json` y los archivos de Cloudflare se conservan como referencia histórica, no participan en el build de Vercel.
+
+## Despliegue en Vercel
+
+El error `NEXT_NO_ROUTES_MANIFEST` aparecía porque el script ejecutaba Vinext, que produce `dist/`, mientras Vercel esperaba `.next/routes-manifest.json`. Ahora `npm run build` aplica migraciones y ejecuta `next build`.
+
+Configuración:
+- Framework: **Next.js**.
+- Root Directory: raíz del repositorio.
+- Install Command: `npm ci`.
+- Build Command: `npm run build`.
+- Output Directory: predeterminado de Next.js (`.next`), declarado también en `vercel.json`.
+- Node.js: 24.x (también compatible con 22.13 o superior).
+
+Neon está conectado desde Vercel Marketplace al proyecto `sistema-paguro-2026`, plan gratuito, sin autenticación adicional. La integración proporciona `DATABASE_URL` y `DATABASE_URL_UNPOOLED` en los entornos conectados. Las credenciales nunca se incluyen en Git. El cliente de base se inicializa al usarlo, no al importar módulos.
+
+`drizzle-pg/` contiene las migraciones nuevas de PostgreSQL. El build ejecuta `scripts/migrate-postgres.mjs`, que aplica solo migraciones pendientes y usa la conexión directa si está disponible. `drizzle/` conserva la migración SQLite histórica y no se ejecuta en Vercel.
+
+**Los registros del antiguo sitio D1 no se copian automáticamente a Neon.** La nueva base se creó vacía. Si se necesita trasladar registros existentes, debe hacerse una exportación e importación aparte. El sitio original permanece separado.
 
 ## Desarrollo local
 
-Requiere Node.js **22.13 o superior** y npm. Git y tar se necesitan para publicación con Sites.
+Requiere Node.js 22.13 o superior (hasta 24.x) y npm.
 
 ```sh
 npm ci
-npm run build
 ```
 
-El primer build genera `dist/server/wrangler.json`. Aplica la migración a la base local:
+Descarga las variables del proyecto con `vercel env pull .env.local` usando tu sesión de Vercel. No publiques ese archivo.
 
 ```sh
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_spicy_mister_fear.sql
-```
-
-Inicia el servidor:
-
-```sh
+npm run db:migrate
 npm run dev
 ```
 
-Abre la dirección que imprime el servidor, normalmente http://localhost:5173. La base local y la de producción están separadas.
-
-Para revisar tipos:
+Abre http://localhost:5173. Para compilar y revisar tipos:
 
 ```sh
-npx tsc --noEmit
+npm run build
+npm run typecheck
 ```
+
+`npm start` sirve el build de producción. `npm run db:generate` genera una nueva migración a partir del esquema. No modifiques las migraciones ya aplicadas.
 
 ## Estructura
 
@@ -57,10 +70,10 @@ npx tsc --noEmit
 - `app/api/registro/route.ts`: validación y persistencia de los datos.
 - `app/api/checkout/route.ts`: registro del inicio de pago.
 - `app/globals.css`: identidad visual y estilos adaptables.
-- `db/` y `drizzle/`: esquema y migraciones de D1.
+- `db/` y `drizzle-pg/`: esquema y migraciones PostgreSQL de Neon; `drizzle/` contiene la migración histórica de D1.
 - `public/brand/`: emblema y logo suministrados.
 - `public/taller.ics`: evento de calendario.
-- `worker/` y `scripts/`: runtime, compilación y soporte del alojamiento.
+- `scripts/migrate-postgres.mjs`: migración versionada antes de compilar. Los archivos de `worker/`, Vite y soporte Sites son históricos y están excluidos del build Next.js.
 
 ## Oferta e integración de pagos
 
@@ -109,3 +122,7 @@ La tabla `leads` conserva consentimiento, fecha, UTMs, inicio del pago y estado.
 ## Validación realizada
 
 Compilación de producción y TypeScript; revisión visual en escritorio y celular; registro y recuperación de datos; apertura directa del widget desde el paso 2 con datos precargados; redirección de la ruta antigua de pago; página de agradecimiento y protección de la medición Purchase frente a visitas sin pago verificado.
+
+## Verificación de compatibilidad Vercel
+
+Build nativo de Next.js y revisión de tipos completados; `.next/routes-manifest.json` generado. Migración PostgreSQL aplicada y pruebas de API: rechazo de celular inválido, guardado y recuperación del registro, importe 33225 COP, inicio del pago conservando pago_pendiente, rechazo de origen externo y carga de agradecimiento. El registro sintético de prueba fue eliminado. No se completó ningún pago real.
