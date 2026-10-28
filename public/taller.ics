@@ -1,0 +1,12 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Sistema Paguro//Taller//ES
+BEGIN:VEVENT
+UID:taller-20261105@sistemapaguro
+DTSTAMP:20261028T000000Z
+DTSTART:20261106T000000Z
+DTEND:20261106T011500Z
+SUMMARY:De tu local a toda Colombia - Sistema Paguro
+DESCRIPTION:Taller en vivo. Enlace de acceso por confirmar.
+END:VEVENT
+END:VCALENDAR
